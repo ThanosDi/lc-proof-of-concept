@@ -1,26 +1,57 @@
 import React from 'react';
-import logo from './logo.svg';
 import './App.css';
+import LiveChat from '@livechat/agent-app-widget-sdk';
+import {
+	compose,
+	lifecycle,
+	withStateHandlers,
+	branch,
+	renderNothing,
+} from 'recompose';
+import {pathEq, pathOr} from 'ramda';
 
-function App() {
+const App = (props) => {
+	console.log({props});
   return (
     <div className="App">
       <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
+		  <p>CustomerId: <b>{pathOr('', ['livechatData', 'id'], props)}</b></p>
+		  <p>ChatID: <b>{pathOr('', ['livechatData', 'chat','id'], props)}</b></p>
       </header>
     </div>
   );
-}
+};
 
-export default App;
+const AppWaitForLiveChatInit = compose(
+	withStateHandlers(
+		{
+			isReady: false,
+			livechatData: {}
+		},
+		{
+			setReady: () => bool => ({isReady: bool}),
+			setLivechatData: () => data => ({livechatData: data})
+		}
+	),
+	lifecycle({
+		async componentDidMount() {
+			try {
+				await LiveChat.init();
+				LiveChat.on('customer_profile', (data) => {
+					this.props.setLivechatData(data);
+				});
+				LiveChat.on('customer_profile_hidden', (data) => {
+					this.props.setLivechatData(data);
+				});
+			} catch (error) {
+				console.error(error);
+			} finally {
+				this.props.setReady(true);
+
+			}
+		}
+	}),
+	branch(pathEq(['isReady'], false), renderNothing)
+)(App);
+
+export default AppWaitForLiveChatInit;
